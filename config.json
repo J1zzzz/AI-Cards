@@ -1,0 +1,20 @@
+{
+  "api_base": "https://api.deepseek.com/v1",
+  "api_key": "sk-804220c9890c46a1a92690d928017bc6",
+  "model": "deepseek-chat",
+  "enabled": true,
+  "timeout": 120,
+  "capture_answer": true,
+  "obsidian": {
+    "vault": "C:/Users/30415/Desktop/Jzzzz",
+    "subdir": "AI-Cards"
+  },
+  "schedule": {
+    "daily": "23:30",
+    "weekly": "SUN 22:00"
+  },
+  "_help_1_api": "填了 api_key 才会用大模型写日报；不填就退化成规则汇总，也能用。OpenAI 兼容端点举例：DeepSeek=https://api.deepseek.com/v1 ｜ 阿里百炼=https://dashscope.aliyuncs.com/compatible-mode/v1 ｜ 智谱=https://open.bigmodel.cn/api/paas/v4 ｜ Moonshot=https://api.moonshot.cn/v1",
+  "_help_2_model": "模型名填你账号后台里真实存在的那个，例如 deepseek-chat / qwen-plus / glm-4-plus / moonshot-v1-8k",
+  "_help_3_vault": "填 Obsidian 库的绝对路径，例如 C:/Users/86152/Documents/MyVault（用正斜杠或双反斜杠）。留空就不导出。",
+  "_help_4_schedule": "daily=每天几点出日报；weekly=每周哪天几点出周报。改完要重启服务才生效。"
+}

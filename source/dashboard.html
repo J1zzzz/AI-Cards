@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>提问卡片 · 防遗忘</title>
+<style>
+  :root{
+    --bg:#EDEBE4; --surface:#FFFFFF; --line:#DCD7C9; --line2:#C6C0AE;
+    --ink:#191917; --muted:#5C5A53; --faint:#87847B;
+    --hi:#B4430F; --hiBg:#FBE7DE;
+    --mid:#8A5406; --midBg:#FAEACF;
+    --low:#5E5C54; --lowBg:#EEECE3;
+    --ok:#0B5F4A; --okBg:#DDF3EA;
+    --shadow:0 1px 2px rgba(45,38,20,.06), 0 10px 22px -14px rgba(45,38,20,.34);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:28px 20px 80px}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:6px}
+  h1{font-size:17px;font-weight:500;margin:0;letter-spacing:.2px}
+  .hint{font-size:12px;color:var(--faint)}
+
+  /* ---------- 统计条（现在可点击） ---------- */
+  .stats{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 20px}
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--surface);border:1px solid var(--line);border-radius:999px;
+    padding:5px 11px;font-size:12px;color:var(--muted);
+    font-family:inherit; line-height:1.4;
+  }
+  .chip b{font-weight:500;color:var(--ink);font-size:13px}
+  .chip.due{border-color:#F0C4B0;background:var(--hiBg);color:#9A3D14}
+  .chip.due b{color:#9A3D14}
+  button.chip{cursor:pointer;transition:.12s}
+  button.chip:hover{border-color:var(--line2);background:#FBFAF7}
+  button.chip.due:hover{background:#F7DED3;border-color:#E7AD94}
+  button.chip.sel{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
+  .tabs{display:flex;background:var(--surface);border:1px solid var(--line2);border-radius:10px;
+    padding:3px;gap:2px;flex-wrap:wrap;box-shadow:0 1px 2px rgba(45,38,20,.05)}
+  .tab{
+    border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;
+    padding:6px 13px;border-radius:7px;cursor:pointer;
+  }
+  .tab:hover{color:var(--ink)}
+  .tab.on{background:var(--ink);color:#fff}
+  .search{
+    flex:1;min-width:140px;border:1px solid var(--line);background:var(--surface);
+    border-radius:9px;padding:8px 12px;font:inherit;font-size:13px;color:var(--ink);outline:none;
+  }
+  .search:focus{border-color:var(--line2)}
+
+  /* ---------- 复习模式 ---------- */
+  .progress{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);margin-bottom:12px}
+  .bar{flex:1;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--ink);transition:width .25s}
+
+  .rcard{
+    position:relative;background:var(--surface);border:1px solid var(--line);
+    border-radius:14px;padding:26px 26px 22px;overflow:hidden;box-shadow:var(--shadow);
+  }
+  .rcard.clickable{cursor:pointer}
+  .rcard.clickable:hover{border-color:var(--line2)}
+  .rcard .stripe{position:absolute;left:0;top:0;bottom:0;width:3px;pointer-events:none}
+  .stripe.high{background:var(--hi)} .stripe.mid{background:var(--mid)} .stripe.low{background:var(--low)}
+
+  .rmeta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint);margin-bottom:14px;flex-wrap:wrap}
+  .src{border:1px solid var(--line);border-radius:999px;padding:1px 9px;color:var(--muted)}
+  .wtag{border-radius:999px;padding:1px 9px;font-size:11px}
+  .w-high{background:var(--hiBg);color:var(--hi)} .w-mid{background:var(--midBg);color:var(--mid)}
+  .w-low{background:var(--lowBg);color:var(--low)}
+  .ansflag{background:var(--okBg);color:var(--ok);border-radius:999px;padding:1px 9px;font-size:11px}
+
+  .qtext{font-size:16px;line-height:1.9;white-space:pre-wrap;word-break:break-word;margin:0 0 4px}
+
+  .reveal{margin-top:18px;border-top:1px dashed var(--line2);padding-top:16px;display:none}
+  .reveal.on{display:block}
+  .reveal > label{font-size:12px;color:var(--faint);display:block;margin-bottom:6px}
+  .concl{
+    width:100%;min-height:64px;border:1px solid var(--line);border-radius:9px;
+    padding:10px 12px;font:inherit;font-size:13.5px;line-height:1.7;resize:vertical;
+    background:#FBFAF7;color:var(--ink);outline:none;
+  }
+  .concl:focus{border-color:var(--line2);background:#fff}
+  .rowbtns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+
+  /* ---------- AI 原始回答（自绘折叠，不用 <details>） ---------- */
+  .ansbox{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:#FBFAF7;overflow:hidden}
+  .ansbox.plain{background:#fff}
+  .anshd{
+    display:flex;align-items:center;gap:7px;width:100%;box-sizing:border-box;
+    border:0;background:none;padding:9px 12px;font:inherit;font-size:12.5px;
+    color:var(--muted);cursor:pointer;text-align:left;
+  }
+  .anshd:hover{color:var(--ink)}
+  .anshd .caret{display:inline-block;font-size:10px;color:var(--faint);transition:transform .15s}
+  .ansbox.on .anshd .caret{transform:rotate(90deg)}
+  .anshd .cnt{margin-left:auto;font-size:11px;color:var(--faint)}
+  .anshd .cp{
+    margin-left:8px;font-size:11px;color:var(--muted);background:#fff;
+    border:1px solid var(--line);border-radius:6px;padding:1px 7px;cursor:pointer;
+  }
+  .anshd .cp:hover{border-color:var(--line2);color:var(--ink)}
+  .ansbody{
+    display:none;padding:12px 14px 14px;border-top:1px solid var(--line);
+    font-size:13px;line-height:1.78;color:#33322E;word-break:break-word;
+    max-height:420px;overflow:auto;
+  }
+  .ansbox.on .ansbody{display:block}
+  .ansbody.txt{white-space:pre-wrap}
+  .ansbody > *:first-child{margin-top:0}
+  .ansbody > *:last-child{margin-bottom:0}
+  .ansbody p{margin:0 0 9px}
+  .ansbody h1,.ansbody h2,.ansbody h3,.ansbody h4{
+    font-size:14px;font-weight:600;margin:14px 0 7px;line-height:1.5;
+  }
+  .ansbody h1{font-size:15.5px} .ansbody h2{font-size:15px}
+  .ansbody ul,.ansbody ol{margin:0 0 9px;padding-left:21px}
+  .ansbody li{margin:3px 0}
+  .ansbody li > ul,.ansbody li > ol{margin:3px 0}
+  .ansbody pre{
+    background:#F4F2EC;border:1px solid var(--line);border-radius:8px;
+    padding:10px 12px;margin:9px 0;overflow:auto;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+    font-size:12.3px;line-height:1.62;
+  }
+  .ansbody pre code{background:none;padding:0;font-size:inherit;border:0}
+  .ansbody code{
+    background:#EFEDE6;border-radius:3px;padding:1px 4px;font-size:12px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  }
+  .ansbody blockquote{
+    margin:9px 0;padding:2px 0 2px 11px;border-left:3px solid var(--line2);color:var(--muted);
+  }
+  .ansbody hr{border:0;border-top:1px solid var(--line2);margin:12px 0}
+  .ansbody table{border-collapse:collapse;margin:9px 0;font-size:12.4px;display:block;overflow:auto}
+  .ansbody th,.ansbody td{border:1px solid var(--line);padding:4px 9px;text-align:left}
+  .ansbody th{background:#F4F2EC;font-weight:600}
+  .ansbody a{color:#1F6FEB;text-decoration:none}
+  .ansbody a:hover{text-decoration:underline}
+
+  button{font:inherit}
+  .btn{
+    border:1px solid var(--line2);background:var(--surface);color:var(--ink);
+    border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer;transition:.12s;
+    box-shadow:0 1px 1px rgba(45,38,20,.04);
+  }
+  .btn:hover{border-color:var(--ink);background:#FBFAF5}
+  .btn.ghost{color:var(--muted)}
+  .btn.wide{flex:1;text-align:center;padding:11px 10px;font-size:13.5px;min-width:96px}
+  .btn.forget:hover{border-color:#E9B3B3;background:#FCEBEB;color:#96201F}
+  .btn.vague:hover{border-color:#EBCB94;background:#FAEEDA;color:#8A5808}
+  .btn.know:hover{border-color:#9FD9C1;background:var(--okBg);color:var(--ok)}
+  .cta{
+    width:100%;border:0;background:var(--ink);color:#fff;border-radius:10px;
+    padding:12px;font-size:13.5px;cursor:pointer;margin-top:18px;
+  }
+  .cta:hover{background:#333}
+  kbd{
+    font-family:inherit;font-size:11px;border:1px solid var(--line2);border-bottom-width:2px;
+    border-radius:4px;padding:0 4px;color:var(--muted);margin-left:4px;
+  }
+  .empty{text-align:center;padding:56px 20px;color:var(--faint);font-size:13px}
+  .empty b{display:block;font-size:15px;color:var(--muted);font-weight:500;margin-bottom:6px}
+
+  /* ---------- 列表模式 ---------- */
+  .item{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow);
+  }
+  .item .top{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint);
+    margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid #F1EEE4;flex-wrap:wrap}
+  .item .txt{font-size:14.2px;line-height:1.85;white-space:pre-wrap;word-break:break-word}
+  .item .cn{font-size:13.2px;color:var(--muted);margin-top:10px;padding-left:10px;border-left:3px solid var(--line2);
+    white-space:pre-wrap;word-break:break-word}
+  .item .acts{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;align-items:center}
+  .mini{
+    border:1px solid var(--line2);background:#fff;border-radius:7px;padding:4px 10px;
+    font-size:11.5px;color:var(--muted);cursor:pointer;
+  }
+  .mini:hover{border-color:var(--ink);color:var(--ink)}
+  .mini.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
+  .tags span{font-size:11px;color:var(--muted);background:var(--bg);border-radius:4px;padding:1px 7px}
+
+  /* ---------- 附件 ---------- */
+  .atts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end}
+  .att{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+       border:1px solid var(--line);border-radius:8px;padding:5px 9px;background:#fff;max-width:100%}
+  .att a{color:inherit;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px}
+  .att a:hover{text-decoration:underline}
+  .att i{font-style:normal;font-size:10.5px;color:var(--faint)}
+  .att i.gray{color:var(--faint);opacity:.8}
+  .att.img{padding:0;border:none;background:none;position:relative}
+  .att.img img{height:76px;min-width:56px;width:auto;max-width:150px;object-fit:cover;border-radius:8px;
+                border:1px solid var(--line);display:block;background:var(--bg)}
+  .att.img .rflag{position:absolute;right:3px;bottom:3px;font-size:9.5px;color:#fff;
+                   background:rgba(0,0,0,.45);border-radius:4px;padding:0 4px}
+  .atttext{margin-top:8px;padding:10px 12px;background:var(--bg);border-radius:8px;
+            font-size:12.5px;line-height:1.65;color:var(--muted);max-height:320px;overflow:auto;
+            white-space:pre-wrap;word-break:break-word}
+
+  .adder{margin-bottom:18px;display:none}
+  .adder.on{display:block}
+  .adder textarea{
+    width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;
+    font:inherit;font-size:13.5px;background:var(--surface);resize:vertical;min-height:48px;outline:none;
+  }
+  .adder textarea:focus{border-color:var(--line2)}
+  .adder .hint{margin-top:6px}
+  .warn{background:#FAEEDA;border:1px solid #EBCB94;color:#7A4E06;border-radius:9px;
+    padding:10px 14px;font-size:12.5px;margin-bottom:16px}
+  .warn.ok{background:var(--okBg);border-color:#9FD9C1;color:#085041}
+
+  /* ---------- 线索 ---------- */
+  .titem{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:16px 20px 14px;margin-bottom:16px;cursor:pointer;transition:.12s;box-shadow:var(--shadow);
+  }
+  .titem:hover{border-color:var(--ink);transform:translateY(-1px)}
+  .titem .ttl{font-size:15.5px;font-weight:600;line-height:1.55;margin:0 0 4px}
+  .titem .intent{font-size:12.8px;color:var(--muted);margin-bottom:10px;line-height:1.6}
+  .tline{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;padding-right:4px}
+  .tline .tn{
+    flex:0 0 auto;font-size:11.5px;color:var(--muted);background:#FBFAF5;
+    border:1px solid var(--line);border-radius:6px;padding:2px 8px;
+    max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .tline .arw{flex:0 0 auto;color:var(--faint);font-size:11px;align-self:center}
+
+  .ttl-input{
+    width:100%;border:0;background:transparent;font:inherit;font-size:16px;font-weight:500;
+    color:var(--ink);padding:0;margin:0 0 4px;outline:none;
+  }
+  .ttl-input:focus{box-shadow:0 1px 0 var(--line2)}
+
+  .ol{list-style:none;margin:12px 0 0;padding:0}
+  .ol li{padding:3px 0}
+  .ol .hd{font-size:13.8px;line-height:1.6}
+  .ol .pt{font-size:12.8px;color:var(--muted);margin-top:1px;line-height:1.6}
+  .ol .tno{font-size:10.5px;color:var(--faint);margin-left:5px;border:1px solid var(--line);border-radius:4px;padding:0 4px}
+
+  .turn{
+    position:relative;background:var(--surface);border:1px solid var(--line);
+    border-radius:12px;padding:16px 20px 14px 22px;margin-bottom:16px;box-shadow:var(--shadow);
+  }
+  .turn .rail{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:12px 0 0 12px;background:var(--line2)}
+  .turn[data-d="1"] .rail{background:#3F826A}
+  .turn[data-d="2"] .rail{background:#54689A}
+  .turn[data-d="3"] .rail{background:#96713F}
+  .turn[data-d="1"]{background:#FCFCFA}
+  .turn[data-d="2"]{background:#FAFAF6}
+  .turn[data-d="3"]{background:#F8F7F2}
+  .turn .qh{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--faint);
+    margin:0 0 12px;padding-bottom:9px;border-bottom:1px solid #F1EEE4;flex-wrap:wrap}
+  .turn .qno{color:var(--muted);font-weight:600}
+  .turn .qt{font-size:15px;line-height:1.8;white-space:pre-wrap;word-break:break-word}
+  .mk{font-size:11px;border-radius:999px;padding:1px 8px;background:var(--bg);
+    border:1px solid var(--line2);color:var(--muted)}
+  .mk.k{background:var(--midBg);border-color:#E4C48D;color:var(--mid)}
+  .concl.mini{min-height:44px;font-size:12.8px;margin-top:14px;padding:9px 11px}
+
+  /* ---------- toast ---------- */
+  #toast{
+    position:fixed;left:50%;bottom:28px;transform:translate(-50%,14px);
+    background:#1E1E1C;color:#fff;border-radius:9px;padding:9px 16px;font-size:13px;
+    opacity:0;pointer-events:none;transition:.2s;max-width:80vw;z-index:99;
+  }
+  #toast.on{opacity:1;transform:translate(-50%,0)}
+  #toast.err{background:#96201F}
+  @media (max-width:560px){
+    .wrap{padding:18px 14px 60px}
+    .rcard{padding:20px 18px 18px}
+    .qtext{font-size:15px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>提问卡片</h1>
+    <span class="hint" id="hint">本地存储 · 只在你这台机器上</span>
+  </header>
+
+  <div id="filewarn"></div>
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar">
+    <div class="tabs" id="tabs">
+      <button type="button" class="tab on" data-view="due">复习</button>
+      <button type="button" class="tab" data-view="threads">线索</button>
+      <button type="button" class="tab" data-view="all">全部</button>
+      <button type="button" class="tab" data-view="today">今日</button>
+      <button type="button" class="tab" data-view="high">高权值</button>
+      <button type="button" class="tab" data-view="digest">汇总</button>
+      <button type="button" class="tab" data-view="archived">归档</button>
+    </div>
+    <button type="button" class="btn ghost" data-act="toggle-adder">＋ 记一条</button>
+    <button type="button" class="btn ghost" data-act="run" data-what="export">同步 Obsidian</button>
+    <input class="search" id="q" placeholder="搜关键词…">
+  </div>
+
+  <div class="adder" id="adder">
+    <textarea id="newtext" placeholder="把问题粘这里，Ctrl + 回车 保存"></textarea>
+    <div class="hint">保存后会自动打分、排进复习队列。</div>
+  </div>
+
+  <div id="main"></div>
+</div>
+<div id="toast"></div>
+
+<script>
+const S = { view:'due', q:'', cards:[], idx:0, revealed:false, stats:{},
+            threads:[], thread:null, turns:[], loose:[], tid:'' };
+const $ = id => document.getElementById(id);
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const WNAME = {high:'高权值', mid:'中权值', low:'低权值'};
+let DEMO = false;
+
+const DEMO_CARDS = [
+  {id:901, created_at:'2026-11-21 22:14:03', source:'DeepSeek', weight:'high', score:89,
+   tags:'并发,事件循环,部署', review_count:1, interval_days:3, archived:0,
+   text:'Python 里 asyncio 的事件循环和线程池混用时，为什么会报 RuntimeError: This event loop is already running？怎么排查部署环境里的并发问题',
+   conclusion:'不要在已运行的 loop 里再 run_until_complete。用 asyncio.run_coroutine_threadsafe，或者把整个调用链异步化。',
+   answer:'原因是 loop 已经在别的线程里跑着了，又调了一次 run_until_complete。\n\n常见触发场景：\n1. Jupyter / Colab 里本身就有 loop\n2. uvicorn 启动时重复调用 asyncio.run\n3. 在异步函数里又调用了同步入口\n\n排查顺序：\n先用 asyncio.get_running_loop() 判断当前上下文，能拿到说明已经在 loop 里，此时只能用 await 或 run_coroutine_threadsafe，不能再 run。\n\n跨线程调用的写法：\nimport asyncio\nfuture = asyncio.run_coroutine_threadsafe(coro(), loop)\nresult = future.result(timeout=5)'},
+  {id:902, created_at:'2026-11-20 09:31:12', source:'WorkBuddy', weight:'high', score:58,
+   tags:'报价,毛利,客户', review_count:0, interval_days:0, archived:0,
+   text:'给客户的报价方案里，成本结构和毛利应该怎么拆才不会被砍价？',
+   conclusion:'把成本拆成「不可避免的硬成本」和「可优化的服务成本」两栏，先摆硬成本建立锚点，再谈服务范围。',
+   answer:'核心是让客户砍价时只能砍「可选项」，砍不到「底座」。\n\n1. 硬成本单独列出：服务器、授权、人力工时，这些写死，标注「不可压缩」\n2. 服务成本分层：基础交付 / 加急 / 驻场，让客户在层内选，而不是在总价上砍\n3. 毛利不要均摊，前置在标准包里，后端增值服务低毛利甚至平出，用来换续约\n\n报价单上永远给三档：精简版、标准版、增强版。中间那档才是你想卖的。'},
+  {id:903, created_at:'2026-11-19 18:02:47', source:'豆包', weight:'mid', score:41,
+   tags:'租房,押金', review_count:2, interval_days:7, archived:0,
+   text:'租房合同里押金退还条款一般怎么写才对我有利？',
+   conclusion:'写明退还期限（7 个工作日）和逾期违约金，附一份入住时的房屋照片清单。',
+   answer:''},
+  {id:904, created_at:'2026-11-18 12:20:09', source:'豆包', weight:'low', score:0,
+   tags:'', review_count:0, interval_days:0, archived:0,
+   text:'今晚吃什么好，附近有什么好吃的推荐吗', conclusion:'', answer:''}
+];
+
+function demoStats(){
+  const live = DEMO_CARDS.filter(c => !c.archived);
+  const n = w => live.filter(c => c.weight === w).length;
+  return {total:live.length, high:n('high'), mid:n('mid'), low:n('low'),
+          due:live.length, archived:DEMO_CARDS.filter(c=>c.archived).length, today:2,
+          with_answer:live.filter(c=>c.answer).length};
+}
+
+function demoList(view, q){
+  let arr = DEMO_CARDS.filter(c => view === 'archived' ? c.archived : !c.archived);
+  if(view === 'high') arr = arr.filter(c => c.weight === 'high');
+  if(view === 'answered') arr = arr.filter(c => (c.answer||'').trim());
+  if(view === 'today') arr = arr.slice(0, 2);
+  if(q) arr = arr.filter(c => ((c.text||'')+(c.conclusion||'')+(c.answer||'')+(c.tags||'')).includes(q));
+  return arr.slice();
+}
+
+function demoThreads(){
+  return [{
+    id:'demo:1', title:'asyncio 事件循环报错怎么查', source:'DeepSeek',
+    intent:'嵌套 loop 到底出在哪、部署环境怎么排查', turns:3, outline:'', outline_at:'',
+    created_at:DEMO_CARDS[0].created_at, updated_at:DEMO_CARDS[0].created_at,
+    preview:['asyncio 事件循环和线程池混用为什么会报错','那部署环境里怎么排查','举个例子说明']
+  }];
+}
+
+function demoThread(){
+  const th = demoThreads()[0];
+  const turns = DEMO_CARDS.slice(0,3).map((c,i)=>({
+    ...c, turn_no:i+1, depth:i, parent_id:i?(DEMO_CARDS[i-1].id):null,
+    ask_type:['定义','方法','举例'][i], relation:['起点','承接','追问'][i]
+  }));
+  return { thread: th, turns };
+}
+
+const DEMO_DIGEST = {
+  mode:'llm', period:'2026-11-22',
+  headline:'今天主要在啃 asyncio 和汇报结构，两件事都卡在“按什么标准选”',
+  themes:[
+    {name:'asyncio 并发', cards:[901,902], insight:'先分清 loop 归属，再选 gather 还是 TaskGroup，不能混着用'},
+    {name:'对上汇报', cards:[903], insight:'结论先行，技术细节全部放附录'}
+  ],
+  cards:[
+    {id:901, gist:'嵌套 loop 导致 RuntimeError，用 run_coroutine_threadsafe'},
+    {id:902, gist:'新代码优先 TaskGroup，异常语义更清晰'},
+    {id:903, gist:'前三页只讲结论、代价、方案对比'}
+  ],
+  sop:[{pattern:'asyncio 用法选择', suggest:'写一张 loop / gather / TaskGroup 的选择清单'}]
+};
+
+/* ---------------- toast ---------------- */
+let tt;
+function toast(msg, isErr){
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'on' + (isErr ? ' err' : '');
+  clearTimeout(tt);
+  tt = setTimeout(()=>{ el.className = ''; }, 2600);
+}
+
+async function api(path, body){
+  const opt = body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {};
+  const r = await fetch(path, opt);
+  if(!r.ok) throw new Error((await r.text()) || ('HTTP ' + r.status));
+  return r.json();
+}
+
+/* ---------------- 数据加载 ---------------- */
+async function load(reset){
+  if(S.view === 'digest') return loadDigest();
+  if(S.view === 'threads') return loadThreads();
+  if(S.view === 'thread') return loadThreadDetail();
+  try{
+    const [st, cards] = await Promise.all([
+      api('/api/stats'),
+      api('/api/cards?view='+encodeURIComponent(S.view)+'&q='+encodeURIComponent(S.q))
+    ]);
+    DEMO = false;
+    $('filewarn').innerHTML = '';
+    S.stats = st || {};
+    S.cards = Array.isArray(cards) ? cards : [];
+  }catch(err){
+    DEMO = true;
+    S.stats = demoStats();
+    S.cards = demoList(S.view, S.q);
+    $('filewarn').innerHTML = '<div class="warn">这是演示数据（连不上本地服务）。双击桌面「AI 卡片库.bat」启动后刷新，就会显示你自己的卡片。</div>';
+  }
+  if(reset || S.cards.length === 0){ S.idx = 0; S.revealed = false; }
+  if(S.idx >= S.cards.length) S.idx = 0;
+  render();
+}
+
+let DIGEST = { list: [], daily: null };
+
+/* ---------------- 线索 ---------------- */
+async function loadThreads(){
+  try{
+    const [st, list, loose] = await Promise.all([
+      api('/api/stats'),
+      api('/api/threads?q=' + encodeURIComponent(S.q)),
+      api('/api/loose')
+    ]);
+    DEMO = false;
+    $('filewarn').innerHTML = '';
+    S.stats = st || {};
+    S.threads = Array.isArray(list) ? list : [];
+    S.loose = Array.isArray(loose) ? loose : [];
+  }catch(err){
+    DEMO = true;
+    S.stats = demoStats();
+    S.threads = demoThreads();
+    S.loose = DEMO_CARDS.filter(c => !c.archived).slice(2, 3);
+    $('filewarn').innerHTML = '<div class="warn">这是演示数据（连不上本地服务）。双击桌面「AI 卡片库.bat」启动后刷新。</div>';
+  }
+  renderThreads($('main'));
+}
+
+async function loadThreadDetail(){
+  if(!S.tid){ S.view = 'threads'; return loadThreads(); }
+  try{
+    const [st, d] = await Promise.all([
+      api('/api/stats'),
+      api('/api/thread?id=' + encodeURIComponent(S.tid))
+    ]);
+    DEMO = false;
+    $('filewarn').innerHTML = '';
+    S.stats = st || {};
+    S.thread = d.thread || null;
+    S.turns = d.turns || [];
+  }catch(err){
+    DEMO = true;
+    S.stats = demoStats();
+    const d = demoThread();
+    S.thread = d.thread;
+    S.turns = d.turns;
+  }
+  renderThreadDetail($('main'));
+}
+
+function renderThreads(m){
+  const ts = S.threads || [], loose = S.loose || [];
+  if(!ts.length && !loose.length){
+    m.innerHTML = `<div class="empty"><b>还没有线索</b>
+      在网页上就同一个话题连续追问，第二轮起会自动串成一条线索。<br>
+      追问越多，这条线的脉络越完整。</div>`;
+    return;
+  }
+  let html = '';
+  if(ts.length){
+    html += `<div class="hint" style="margin:2px 0 10px">${ts.length} 条线索 · 点开看完整脉络</div>`;
+    html += ts.map(t => {
+      const dots = (t.preview || []).map(p => `<span class="tn">${esc(p)}</span>`).join('<span class="arw">→</span>');
+      return `<div class="titem" data-act="open-thread" data-id="${esc(t.id)}">
+        <div class="top" style="display:flex;gap:8px;font-size:11.5px;color:var(--faint);margin-bottom:6px;flex-wrap:wrap;align-items:center">
+          <span class="src">${esc(t.source || '未知')}</span>
+          <span>${t.turns || 0} 轮</span>
+          <span>${esc((t.updated_at || '').slice(5, 16))}</span>
+          ${t.outline_at ? '<span class="ansflag">已有脉络</span>' : ''}
+        </div>
+        <div class="ttl">${esc(t.title || '未命名线索')}</div>
+        ${t.intent && t.intent !== t.title ? `<div class="intent">${esc(t.intent)}</div>` : ''}
+        <div class="tline">${dots}</div>
+      </div>`;
+    }).join('');
+  }else{
+    html += `<div class="warn">还没有多轮线索。连续追问同一个话题，第二轮起就会自动串起来。</div>`;
+  }
+  if(loose.length){
+    html += `<div class="hint" style="margin:24px 0 8px">散卡（不属于任何线索）—— 勾选属于同一次对话的几条，可以串成一条线索</div>`;
+    html += loose.map(c => `<div class="item">
+      <div class="top">
+        <input type="checkbox" class="pick" value="${c.id}" title="选中后可串成线索">
+        <span class="src">${esc(c.source || '未知')}</span>
+        <span>${esc((c.created_at || '').slice(5, 16))}</span>
+      </div>
+      <div class="txt">${esc(c.text)}</div>
+      ${c.conclusion ? `<div class="cn">${esc(c.conclusion)}</div>` : ''}
+    </div>`).join('');
+    html += `<div class="rowbtns" style="margin-top:4px">
+      <button type="button" class="btn" data-act="make-thread">把勾选的串成一条线索</button>
+    </div>`;
+  }
+  m.innerHTML = html;
+}
+
+function outlineHtml(o){
+  const ol = o.outline || [];
+  if(!ol.length) return '';
+  return `<div class="ol">${ol.map(it => {
+    const lv = Math.max(1, Math.min(+it.level || 1, 4));
+    return `<li style="margin-left:${(lv - 1) * 20}px">
+      <div class="hd">${lv > 1 ? '· ' : ''}${esc(it.heading || '')}${
+        (it.turns || []).length ? `<span class="tno">第 ${it.turns.join('、')} 轮</span>` : ''}</div>
+      ${it.point ? `<div class="pt">${esc(it.point)}</div>` : ''}
+    </li>`;
+  }).join('')}</div>`;
+}
+
+function turnHtml(c, tid){
+  const d = Math.min(c.depth || 0, 4);
+  return `<div class="turn" data-d="${d}" style="margin-left:${d * 22}px">
+    <div class="rail"></div>
+    <div class="qh">
+      <span class="qno">第 ${c.turn_no || '?'} 轮</span>
+      ${c.ask_type ? `<span class="mk">${esc(c.ask_type)}</span>` : ''}
+      ${c.relation ? `<span class="mk k">${esc(c.relation)}</span>` : ''}
+      <span style="margin-left:auto">${esc((c.created_at || '').slice(5, 16))}</span>
+    </div>
+    <div class="qt">${esc(c.text)}</div>
+    ${fileBlock(c)}
+    <textarea class="concl mini" data-cid="${c.id}" placeholder="这一轮的结论，一句话">${esc(c.conclusion || '')}</textarea>
+    <div class="rowbtns" style="margin-top:8px">
+      <button type="button" class="mini" data-act="save-concl" data-id="${c.id}">存结论</button>
+      ${(c.turn_no || 0) > 1 ? `<button type="button" class="mini" data-act="split" data-id="${esc(tid)}" data-turn="${c.turn_no}">从这轮另立线索</button>` : ''}
+    </div>
+    ${answerBlock(c, false, true)}
+  </div>`;
+}
+
+function renderThreadDetail(m){
+  const t = S.thread, turns = S.turns || [];
+  if(!t){ m.innerHTML = '<div class="empty"><b>线索不存在或已删除</b></div>'; return; }
+  let o = {};
+  try { o = JSON.parse(t.outline || '{}'); } catch(e) {}
+  const hasOutline = (o.outline || []).length > 0;
+
+  m.innerHTML = `
+    <div class="toolbar" style="margin-bottom:14px">
+      <button type="button" class="btn ghost" data-act="back">← 线索列表</button>
+      <button type="button" class="btn" data-act="outline" data-id="${esc(t.id)}">${hasOutline ? '重算脉络' : '生成脉络'}</button>
+      <button type="button" class="btn ghost" data-act="thread-archive" data-id="${esc(t.id)}">归档线索</button>
+    </div>
+
+    <div class="rcard" style="margin-bottom:18px">
+      <div class="stripe high"></div>
+      <div class="rmeta">
+        <span class="src">${esc(t.source || '未知')}</span>
+        <span>${turns.length} 轮</span>
+        <span>${esc((t.created_at || '').slice(0, 16))}</span>
+        ${o.mode ? `<span>${o.mode === 'llm' ? '大模型脉络' : '规则脉络'}</span>` : ''}
+      </div>
+      <input class="ttl-input" id="ttitle" value="${esc(t.title || '')}" placeholder="给这条线索起个名字">
+      ${t.intent && t.intent !== t.title ? `<div class="intent" style="font-size:12.8px;color:var(--muted);margin-bottom:2px">${esc(t.intent)}</div>` : ''}
+
+      ${hasOutline ? outlineHtml(o) : `<div class="hint" style="margin-top:12px">还没有脉络。点上面的「生成脉络」，把这几轮问答按逻辑重排一遍 —— 这一步才是把对话变成知识。</div>`}
+
+      ${(o.open || []).length ? `<div class="warn" style="margin:14px 0 0">
+        <b style="font-weight:500">还没弄清</b>：${o.open.map(esc).join('；')}</div>` : ''}
+      ${o.next ? `<div class="warn ok" style="margin:10px 0 0">下一步：${esc(o.next)}</div>` : ''}
+    </div>
+
+    <div class="hint" style="margin:0 0 8px">逐轮对话 · 缩进表示它追的是哪一轮</div>
+    ${turns.map(c => turnHtml(c, t.id)).join('')}
+  `;
+}
+
+async function loadDigest(){
+  try{
+    const list = await api('/api/digests?kind=daily');
+    DEMO = false;
+    $('filewarn').innerHTML = '';
+    const arr = Array.isArray(list) ? list : [];
+    DIGEST = { list: arr, daily: arr[0] || null };
+  }catch(err){
+    DEMO = true;
+    DIGEST = { list: [{period:'2026-11-22', content: JSON.stringify(DEMO_DIGEST)}],
+               daily: {period:'2026-11-22', content: JSON.stringify(DEMO_DIGEST)} };
+    $('filewarn').innerHTML = '<div class="warn">这是演示数据（连不上本地服务）。双击桌面「AI 卡片库.bat」启动后刷新。</div>';
+  }
+  render();
+}
+
+/* ---------------- 统计条 ---------------- */
+function renderStats(){
+  const s = S.stats || {};
+  const n = v => (v == null ? 0 : v);
+  const chip = (goto, cls, val, label, title, markSel) => {
+    const sel = (goto && markSel !== false && S.view === goto) ? ' sel' : '';
+    const attr = goto ? ' data-goto="'+goto+'" title="'+(title||('查看'+label)) +'"' : '';
+    const tag = goto ? 'button' : 'div';
+    return '<'+tag+' type="button" class="chip '+(cls||'')+sel+'"'+attr+'><b>'+n(val)+'</b> '+label+'</'+tag+'>';
+  };
+  $('stats').innerHTML =
+      chip('due', 'due', s.due, '张今天该复习', '进入复习')
+    + chip('threads', '', s.threads, '条线索', '查看多轮追问形成的线索')
+    + chip('all', '', s.total, '在库', '查看全部卡片')
+    + chip('high', '', s.high, '高权值', '只看高权值')
+    + chip('today', '', s.today, '今日新增', '只看今天新增的卡片')
+    + chip('answered', '', s.with_answer, '带 AI 答案', '只看有回答的卡片')
+    + chip('archived', '', s.archived, '已归档', '查看归档');
+}
+
+function render(){
+  renderStats();
+  const m = $('main');
+  if(S.view === 'due') return renderReview(m);
+  if(S.view === 'digest') return renderDigest(m);
+  if(S.view === 'threads') return renderThreads(m);
+  if(S.view === 'thread') return renderThreadDetail(m);
+  return renderList(m);
+}
+
+/* ---------------- 汇总 ---------------- */
+function renderDigest(m){
+  const rec = DIGEST.daily;
+  if(!rec){
+    m.innerHTML = `<div class="empty"><b>还没有日报</b>今天问过 AI 之后，点下面的按钮生成。<br><br>
+      <button type="button" class="btn" data-act="run" data-what="daily">生成今天的日报</button></div>`;
+    return;
+  }
+  let j = {};
+  try { j = JSON.parse(rec.content || '{}'); } catch(e) {}
+  const gist = {};
+  (j.cards || []).forEach(c => { gist[c.id] = c.gist; });
+  const mode = (j.mode === 'llm') ? '大模型归纳' : '规则汇总（未配 API）';
+
+  m.innerHTML = `
+    <div class="progress"><span>${esc(rec.period)}</span>
+      <span class="bar"><i style="width:100%"></i></span><span>${mode}</span></div>
+    <div class="rcard" style="margin-bottom:14px">
+      <div class="stripe high"></div>
+      <p class="qtext" style="font-size:15px">${esc(j.headline || '（无摘要）')}</p>
+    </div>
+    ${(j.threads||[]).length ? `<div class="hint" style="margin:0 0 8px">今天推进的线索</div>
+      ${j.threads.map(t=>`<div class="item">
+        <div class="top"><span class="src">线索</span><span>${(t.cards||[]).length} 张卡</span></div>
+        <div class="txt" style="font-size:13.5px">${esc(t.title||'')}</div>
+        ${t.progress?`<div class="cn">${esc(t.progress)}</div>`:''}
+      </div>`).join('')}` : ''}
+    ${(j.themes||[]).map(t=>`
+      <div class="item">
+        <div class="top"><span class="src">${esc(t.name)}</span><span>${(t.cards||[]).length} 张卡片</span></div>
+        ${t.insight ? `<div class="txt" style="font-size:13.5px">${esc(t.insight)}</div>` : ''}
+        ${(t.cards||[]).map(id => gist[id] ? `<div style="font-size:12.5px;color:var(--muted);margin-top:6px">· ${esc(gist[id])}</div>` : '').join('')}
+      </div>`).join('')}
+    ${(j.patterns||[]).length ? `<div class="item"><div class="top"><span class="src">值得注意的提问模式</span></div>
+        ${j.patterns.map(p=>`<div style="font-size:13px;color:var(--muted);margin-top:6px">· ${esc(typeof p==='string'?p:(p.text||p.pattern||''))}</div>`).join('')}</div>` : ''}
+    ${(j.sop||[]).length ? `<div class="warn ok">
+      可以固化：${j.sop.map(s=>esc((s.pattern||'')+' → '+(s.suggest||''))).join('；')}</div>` : ''}
+    ${(j.next||[]).length ? `<div class="item"><div class="top"><span class="src">下一步</span></div>
+        ${j.next.map(x=>`<div style="font-size:13px;color:var(--muted);margin-top:6px">· ${esc(x)}</div>`).join('')}</div>` : ''}
+    <div class="rowbtns" style="margin-top:16px">
+      <button type="button" class="btn" data-act="run" data-what="daily">重算今天</button>
+      <button type="button" class="btn" data-act="run" data-what="weekly">生成周报</button>
+      <button type="button" class="btn" data-act="run" data-what="export">同步到 Obsidian</button>
+    </div>
+    ${DIGEST.list.length > 1 ? `<div class="hint" style="margin-top:12px">历史日报：${DIGEST.list.slice(1,12).map(x=>esc(x.period)).join(' · ')}</div>` : ''}`;
+}
+
+/* ---------------- Markdown 渲染（零依赖，够用即可） ---------------- */
+function mdInline(escaped){
+  const codes = [];
+  let s = escaped.replace(/`([^`\n]+)`/g, (m, c) => {
+    codes.push(c);
+    return '\u0001' + (codes.length - 1) + '\u0001';
+  });
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+  s = s.replace(/(^|[^*\w])\*([^*\n]+)\*/g, '$1<i>$2</i>');
+  s = s.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
+  s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  s = s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,
+    '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+  s = s.replace(/\u0001(\d+)\u0001/g, (m, i) => '<code>' + codes[+i] + '</code>');
+  return s;
+}
+
+const _isListLine = l => /^\s*([-*+]|\d+[.)])\s+/.test(l);
+const _isHr = l => /^\s*([-*_])\1{2,}\s*$/.test(l);
+const _isTableSep = l => /\|/.test(l) && /^[\s:|-]+$/.test(l) && /-/.test(l);
+
+function _parseList(lines, i){
+  const items = [];
+  while(i < lines.length){
+    const ln = lines[i];
+    if(!ln.trim()){
+      if(i + 1 < lines.length && _isListLine(lines[i + 1])){ i++; continue; }
+      break;
+    }
+    const m = ln.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
+    if(!m) break;
+    items.push({ind: m[1].replace(/\t/g, '  ').length, ord: /^\d/.test(m[2]), text: m[3]});
+    i++;
+  }
+  let html = '';
+  const stack = [];
+  const tagOf = it => (it.ord ? 'ol' : 'ul');
+  const closeTo = ind => {
+    while(stack.length && ind < stack[stack.length - 1].ind){
+      html += '</li></' + stack.pop().tag + '>';
+    }
+  };
+  for(const it of items){
+    const t = tagOf(it);
+    if(!stack.length || it.ind > stack[stack.length - 1].ind){
+      stack.push({ind: it.ind, tag: t});
+      html += '<' + t + '><li>' + mdInline(esc(it.text));
+      continue;
+    }
+    closeTo(it.ind);
+    const top = stack[stack.length - 1];
+    if(!top){
+      stack.push({ind: it.ind, tag: t});
+      html += '<' + t + '><li>' + mdInline(esc(it.text));
+    } else if(top.tag !== t){
+      html += '</li></' + stack.pop().tag + '>';
+      stack.push({ind: it.ind, tag: t});
+      html += '<' + t + '><li>' + mdInline(esc(it.text));
+    } else {
+      html += '</li><li>' + mdInline(esc(it.text));
+    }
+  }
+  while(stack.length) html += '</li></' + stack.pop().tag + '>';
+  return {html, next: i};
+}
+
+function md(src){
+  const lines = String(src == null ? '' : src).replace(/\r\n?/g, '\n').split('\n');
+  const out = [];
+  let buf = [];
+  let i = 0;
+  const flush = () => {
+    if(!buf.length) return;
+    out.push('<p>' + buf.map(l => mdInline(esc(l))).join('<br>') + '</p>');
+    buf = [];
+  };
+  while(i < lines.length){
+    const ln = lines[i];
+
+    let m = ln.match(/^\s*```+\s*([\w+#.-]*)\s*$/);
+    if(m){
+      flush();
+      const body = [];
+      i++;
+      while(i < lines.length && !/^\s*```+\s*$/.test(lines[i])){ body.push(lines[i]); i++; }
+      i++;
+      out.push('<pre><code>' + esc(body.join('\n')) + '</code></pre>');
+      continue;
+    }
+
+    m = ln.match(/^(#{1,6})\s+(.*)$/);
+    if(m){
+      flush();
+      const lv = Math.min(m[1].length, 4);
+      out.push('<h' + lv + '>' + mdInline(esc(m[2].replace(/\s*#+\s*$/, ''))) + '</h' + lv + '>');
+      i++;
+      continue;
+    }
+
+    if(_isHr(ln)){ flush(); out.push('<hr>'); i++; continue; }
+
+    if(/^\s*>\s?/.test(ln)){
+      flush();
+      const q = [];
+      while(i < lines.length && /^\s*>\s?/.test(lines[i])){
+        q.push(lines[i].replace(/^\s*>\s?/, ''));
+        i++;
+      }
+      out.push('<blockquote>' + md(q.join('\n')) + '</blockquote>');
+      continue;
+    }
+
+    if(ln.indexOf('|') >= 0 && i + 1 < lines.length && _isTableSep(lines[i + 1])){
+      flush();
+      const cut = r => r.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(x => x.trim());
+      const head = cut(ln);
+      i += 2;
+      const rows = [];
+      while(i < lines.length && lines[i].indexOf('|') >= 0 && lines[i].trim()){
+        rows.push(cut(lines[i]));
+        i++;
+      }
+      out.push('<table><thead><tr>' + head.map(h => '<th>' + mdInline(esc(h)) + '</th>').join('') +
+        '</tr></thead><tbody>' +
+        rows.map(r => '<tr>' + r.map(c => '<td>' + mdInline(esc(c)) + '</td>').join('') + '</tr>').join('') +
+        '</tbody></table>');
+      continue;
+    }
+
+    if(_isListLine(ln)){
+      flush();
+      const r = _parseList(lines, i);
+      out.push(r.html);
+      i = r.next;
+      continue;
+    }
+
+    if(!ln.trim()){ flush(); i++; continue; }
+
+    buf.push(ln);
+    i++;
+  }
+  flush();
+  return out.join('');
+}
+
+/* ---------------- 复习 ---------------- */
+function answerBody(c){
+  const a = (c.answer || '').trim();
+  if(!a) return '';
+  if(c.answer_fmt === 'md') return '<div class="ansbody md">' + md(a) + '</div>';
+  return '<div class="ansbody txt">' + esc(a) + '</div>';
+}
+
+function answerBlock(c, open, plain){
+  const a = (c.answer || '').trim();
+  if(!a){
+    return `<div class="hint" style="margin-top:14px">这张卡没有抓到 AI 回答${
+      c.answer_status === 'missing' ? '（当时标记为缺失）' : ''}。可以直接在下面补一句结论。</div>`;
+  }
+  return `<div class="ansbox${open ? ' on' : ''}${plain ? ' plain' : ''}">
+      <button type="button" class="anshd" data-act="ans" data-id="${c.id}">
+        <span class="caret">▶</span>AI 原始回答
+        <span class="cnt">${a.length} 字</span>
+        <span class="cp" data-act="copy" data-id="${c.id}">复制 md</span>
+      </button>
+      ${answerBody(c)}
+    </div>`;
+}
+
+function fileBlock(c, compact){
+  const ats = c.atts || [];
+  if(!ats.length) return '';
+  const box = 'attbox-' + c.id;
+  return `<div class="atts">` + ats.map(a=>{
+    const kb = a.size ? (a.size > 1048576
+      ? (a.size / 1048576).toFixed(1) + ' MB'
+      : Math.max(1, Math.round(a.size / 1024)) + ' KB') : '';
+    const url = (a.origin === 'remote' && a.remote) ? a.remote : '/api/file?id=' + a.id;
+    if(a.kind === 'image' && (a.origin !== 'remote' || a.remote)){
+      const fid = 'attfb-' + a.id;
+      return `<a class="att img" href="${esc(url)}" target="_blank" rel="noreferrer" title="${esc(a.name)}${kb ? ' · ' + kb : ''}">
+        <img src="${esc(url)}" alt="${esc(a.name)}" loading="lazy"
+             onerror="this.closest('.att').style.display='none';var f=document.getElementById('${fid}');if(f)f.style.display='inline-flex';">
+        ${a.origin === 'remote' ? '<span class="rflag">预览</span>' : ''}
+      </a><span class="att doc" id="${fid}" style="display:none">
+        <span>🖼 ${esc(a.name)}</span>${kb ? `<i>${kb}</i>` : ''}<i class="gray">图已失效</i>
+      </span>`;
+    }
+    const note = a.origin === 'remote' ? (a.remote ? '云端' : '仅记名字') : (a.text_len ? '' : '仅存原件');
+    return `<span class="att doc">
+      ${a.origin === 'remote' && !a.remote ? `<span>📄 ${esc(a.name)}</span>`
+        : `<a href="${esc(url)}" target="_blank" rel="noreferrer">📄 ${esc(a.name)}</a>`}
+      ${kb ? `<i>${kb}</i>` : ''}
+      ${note ? `<i class="gray">${note}</i>` : ''}
+      ${a.text_len ? `<button type="button" class="mini" data-act="att-text" data-id="${a.id}" data-target="${box}">原文</button>` : ''}
+    </span>`;
+  }).join('') + `</div><div id="${box}"></div>`;
+}
+
+function renderReview(m){
+  if(!S.cards.length){
+    m.innerHTML = `<div class="empty"><b>今天没有要复习的</b>
+      去问 AI 吧，抓取到的卡片会自动排进复习队列。<br><br>
+      <button type="button" class="btn" data-goto="all">看看全部卡片</button></div>`;
+    return;
+  }
+  const c = S.cards[S.idx];
+  const pct = Math.round((S.idx + (S.revealed ? 1 : 0)) / S.cards.length * 100);
+  const hasAns = !!(c.answer || '').trim();
+
+  m.innerHTML = `
+    <div class="progress">
+      <span>${S.idx + 1} / ${S.cards.length}</span>
+      <span class="bar"><i style="width:${pct}%"></i></span>
+      <span>间隔 ${c.interval_days || 0} 天</span>
+    </div>
+    <div class="rcard ${S.revealed ? '' : 'clickable'}"${S.revealed ? '' : ' data-act="reveal"'}>
+      <div class="stripe ${esc(c.weight || 'low')}"></div>
+      <div class="rmeta">
+        <span class="src">${esc(c.source || '未知')}</span>
+        <span class="wtag w-${esc(c.weight || 'low')}">${WNAME[c.weight] || '未分级'}</span>
+        ${hasAns ? `<span class="ansflag">含回答</span>` : ''}
+        ${c.thread_title ? `<span title="这条线索里的第 ${c.turn_no || 1} 轮">第 ${c.turn_no || 1} 轮</span>` : ''}
+        <span>${esc((c.created_at || '').slice(0, 10))}</span>
+        <span>复习 ${c.review_count || 0} 次</span>
+      </div>
+      ${c.thread_title ? `<div class="cn" style="border-left-color:var(--line);margin:-6px 0 10px">
+        线索《${esc(c.thread_title)}》
+        <button type="button" class="mini" style="margin-left:6px" data-act="open-thread" data-id="${esc(c.thread_id)}">看整条线 ›</button>
+      </div>` : ''}
+      <p class="qtext">${esc(c.text)}</p>
+      ${fileBlock(c)}
+      ${c.tags ? `<div class="tags">${String(c.tags).split(',').map(t=>`<span>${esc(t)}</span>`).join('')}</div>` : ''}
+
+      ${S.revealed ? `
+      <div class="reveal on">
+        <label>我的结论（一句话，下次直接抄；改了会自动存）</label>
+        <textarea class="concl" id="concl" placeholder="一句话结论，下次直接抄">${esc(c.conclusion || '')}</textarea>
+        ${answerBlock(c, true)}
+        <div class="rowbtns">
+          <button type="button" class="btn ghost" data-act="weight" data-w="high">设为高权值</button>
+          <button type="button" class="btn ghost" data-act="weight" data-w="low">降为低权值</button>
+          <button type="button" class="btn ghost" data-act="archive">归档</button>
+          <button type="button" class="btn ghost" data-act="skip">跳下一条</button>
+        </div>
+      </div>` : ''}
+
+      ${S.revealed ? `
+        <div class="rowbtns" style="margin-top:16px">
+          <button type="button" class="btn wide forget" data-act="grade" data-g="0">忘了<kbd>1</kbd></button>
+          <button type="button" class="btn wide vague" data-act="grade" data-g="1">模糊<kbd>2</kbd></button>
+          <button type="button" class="btn wide know" data-act="grade" data-g="2">记住了<kbd>3</kbd></button>
+        </div>` : `
+        <button type="button" class="cta" data-act="reveal">看结论和 AI 回答<kbd>空格</kbd></button>`}
+    </div>`;
+}
+
+/* ---------------- 列表 ---------------- */
+function renderList(m){
+  if(!S.cards.length){
+    const msg = S.view === 'archived' ? '归档区没有内容。'
+              : (S.view === 'answered' ? '还没有抓到 AI 回答。网页端提问后，回答生成完会自动补上。'
+              : (S.view === 'today' ? '今天还没有新卡片。去问 AI，抓到的会自动进来。'
+                                       : '去问 AI，卡片会自己长出来。'));
+    m.innerHTML = `<div class="empty"><b>这里还是空的</b>${msg}</div>`;
+    return;
+  }
+  m.innerHTML = S.cards.map(c=>{
+    const hasAns = !!(c.answer || '').trim();
+    return `
+    <div class="item">
+      <div class="top">
+        <span class="src">${esc(c.source || '未知')}</span>
+        <span class="wtag w-${esc(c.weight||'low')}">${WNAME[c.weight] || '未分级'}</span>
+        <span>${esc((c.created_at||'').slice(5,16))}</span>
+        <span>分值 ${c.score == null ? '-' : c.score}</span>
+      </div>
+      <div class="txt">${esc(c.text)}</div>
+      ${fileBlock(c)}
+      ${c.thread_title ? `<div class="cn" style="border-left-color:var(--line)">
+        《${esc(c.thread_title)}》第 ${c.turn_no || 1} 轮${c.relation ? ' · ' + esc(c.relation) : ''}
+        <button type="button" class="mini" style="margin-left:6px" data-act="open-thread" data-id="${esc(c.thread_id)}">看线索 ›</button>
+      </div>` : ''}
+      ${c.conclusion ? `<div class="cn">${esc(c.conclusion)}</div>` : ''}
+      ${hasAns ? answerBlock(c, !!S.q, true) : ''}
+      ${c.tags ? `<div class="tags">${String(c.tags).split(',').map(t=>`<span>${esc(t)}</span>`).join('')}</div>` : ''}
+      <div class="acts">
+        <button type="button" class="mini ${c.weight==='high'?'on':''}" data-act="weight" data-id="${c.id}" data-w="high">高</button>
+        <button type="button" class="mini ${c.weight==='mid'?'on':''}" data-act="weight" data-id="${c.id}" data-w="mid">中</button>
+        <button type="button" class="mini ${c.weight==='low'?'on':''}" data-act="weight" data-id="${c.id}" data-w="low">低</button>
+        <button type="button" class="mini" data-act="archive" data-id="${c.id}" data-flag="${c.archived?0:1}">${c.archived?'恢复':'归档'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setTab(view){
+  const target = view === 'thread' ? 'threads' : view;
+  [...$('tabs').children].forEach(x=>x.classList.toggle('on', x.dataset.view === target));
+}
+
+/* ---------------- 视图切换 ---------------- */
+function switchView(view){
+  if(!view) return;
+  S.view = view;
+  S.idx = 0;
+  S.revealed = false;
+  setTab(view);
+  $('q').value = '';
+  S.q = '';
+  load(true);
+}
+
+$('tabs').addEventListener('click', e=>{
+  const b = e.target.closest('.tab');
+  if(b) switchView(b.dataset.view);
+});
+
+/* ---------------- 统一点击处理 ---------------- */
+document.addEventListener('click', async e=>{
+  // 1) 统计胶囊 / 空态里的跳转按钮
+  const g = e.target.closest('[data-goto]');
+  if(g){
+    switchView(g.dataset.goto);
+    return;
+  }
+
+  // 2) 功能按钮
+  const t = e.target.closest('[data-act]');
+  if(!t) return;
+  const act = t.dataset.act;
+  if(!act) return;
+
+  // 点在有自己行为的元素里（按钮、输入框、回答折叠块），不要连带触发卡片翻面
+  if(act === 'reveal'){
+    const inner = e.target.closest('.ansbox, button, textarea, input, a');
+    if(inner && inner.dataset.act !== 'reveal') return;
+  }
+
+  const cur = (S.view === 'due') ? S.cards[S.idx] : null;
+  const id = t.dataset.id || (cur && cur.id);
+
+  if(act === 'toggle-adder'){
+    const a = $('adder');
+    a.classList.toggle('on');
+    if(a.classList.contains('on')) $('newtext').focus();
+    return;
+  }
+
+  // 折叠/展开 AI 回答：直接改 DOM，不重排整页，所以不会丢状态
+  if(act === 'ans'){
+    const box = t.closest('.ansbox');
+    if(box){
+      const on = box.classList.toggle('on');
+      t.setAttribute('aria-expanded', on ? 'true' : 'false');
+    }
+    return;
+  }
+
+  if(act === 'copy'){
+    const card = S.cards.find(x => x.id == id) || cur;
+    const txt = (card && card.answer) || '';
+    if(!txt){ toast('这张卡没有内容可复制', true); return; }
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(txt);
+      }else{
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      toast('已复制 Markdown 原文');
+    }catch(err){
+      toast('复制失败：' + err.message, true);
+    }
+    return;
+  }
+
+  if(act === 'att-text'){
+    const box = document.getElementById(t.dataset.target || '');
+    if(!box) return;
+    if(box.dataset.open === '1'){ box.dataset.open = '0'; box.innerHTML = ''; t.textContent = '原文'; return; }
+    box.dataset.open = '1';
+    box.innerHTML = '<div class="hint">读取中…</div>';
+    t.textContent = '收起';
+    try{
+      const j = await api('/api/attach/text?id=' + encodeURIComponent(t.dataset.id));
+      const txt = (j && j.text) || '';
+      box.innerHTML = txt
+        ? `<div class="atttext">${esc(txt.slice(0, 8000))}${txt.length > 8000 ? '\n…（已截断，点文件名看全文）' : ''}</div>`
+        : '<div class="hint">这份附件没有抽出文字（可能是扫描件或纯图片）</div>';
+    }catch(err){
+      box.innerHTML = '<div class="hint">读取失败，可能文件已被移动</div>';
+    }
+    return;
+  }
+
+  if(act === 'open-thread'){
+    if(!t.dataset.id){ toast('这条线索还没有 id', true); return; }
+    S.tid = t.dataset.id;
+    S.view = 'thread';
+    S.q = '';
+    setTab('threads');
+    load(true);
+    return;
+  }
+
+  if(act === 'back'){ switchView('threads'); return; }
+
+  if(act === 'outline'){
+    if(DEMO){ toast('演示模式：启动本地服务后才能生成', true); return; }
+    const label = t.textContent;
+    t.disabled = true;
+    t.textContent = '整理中…';
+    try{
+      const r = await api('/api/thread/outline', {id: S.tid, force: true});
+      if(r && r.error){ toast(r.error, true); }
+      else { toast(r && r.mode === 'llm' ? '已用大模型重排脉络' : '已按结构生成脉络（未配 API，规则版）'); }
+      await loadThreadDetail();
+    }catch(err){
+      toast('失败：' + err.message, true);
+      t.disabled = false;
+      t.textContent = label;
+    }
+    return;
+  }
+
+  if(act === 'thread-archive'){
+    if(DEMO){ toast('演示模式：启动本地服务后才能归档', true); return; }
+    try{
+      await api('/api/thread/archive', {id: S.tid, flag: 1});
+      toast('已归档这条线索');
+      switchView('threads');
+    }catch(err){ toast('失败：' + err.message, true); }
+    return;
+  }
+
+  if(act === 'split'){
+    if(DEMO){ toast('演示模式：启动本地服务后才能拆分', true); return; }
+    try{
+      const r = await api('/api/thread/split', {id: t.dataset.id, turn: +t.dataset.turn});
+      toast(r && r.ok ? '已从这一轮另立一条线索' : '拆分失败', !(r && r.ok));
+      await loadThreadDetail();
+    }catch(err){ toast('失败：' + err.message, true); }
+    return;
+  }
+
+  if(act === 'make-thread'){
+    const ids = [...document.querySelectorAll('.pick:checked')].map(x => x.value);
+    if(ids.length < 2){ toast('至少勾选两条（属于同一次对话的）', true); return; }
+    if(DEMO){ toast('演示模式：启动本地服务后才能串线索', true); return; }
+    try{
+      const r = await api('/api/thread/make', {ids});
+      if(r && r.ok){ toast('已串成一条线索'); S.tid = r.thread.id; S.view = 'thread'; setTab('threads'); await loadThreadDetail(); }
+      else { toast('串接失败', true); }
+    }catch(err){ toast('失败：' + err.message, true); }
+    return;
+  }
+
+  if(act === 'save-concl'){
+    const ta = document.querySelector('textarea[data-cid="' + id + '"]');
+    const txt = ta ? ta.value.trim() : '';
+    if(DEMO){ toast('演示模式：启动本地服务后才能保存', true); return; }
+    try{
+      await api('/api/conclusion', {id, text: txt});
+      const card = (S.turns || []).find(x => x.id == id);
+      if(card) card.conclusion = txt;
+      toast(txt ? '结论已存' : '已清空结论');
+    }catch(err){ toast('保存失败：' + err.message, true); }
+    return;
+  }
+
+  if(act === 'reveal'){
+    if(S.revealed) return;
+    S.revealed = true;
+    renderReview($('main'));
+    return;
+  }
+
+  if(act === 'skip'){
+    if(!S.cards.length) return;
+    S.revealed = false;
+    S.idx++;
+    if(S.idx >= S.cards.length){ load(true); } else { renderReview($('main')); }
+    return;
+  }
+
+  if(act === 'run'){
+    if(DEMO){ toast('需要先启动本地服务：双击 ai-capture 里的 start.bat', true); return; }
+    const what = t.dataset.what;
+    const label = t.textContent;
+    t.disabled = true;
+    t.textContent = '处理中…';
+    try{
+      const r = await api('/api/run', {what});
+      if(what === 'export'){
+        toast(r.skipped ? ('没有导出：' + r.skipped)
+                        : ('已更新 ' + (r.cards_written||0) + ' 篇卡片、' + (r.threads_written||0)
+                           + ' 篇线索，未变 ' + (r.cards_skipped||0) + ' 篇'
+                           + (r.pruned ? '，清掉旧版 ' + r.pruned + ' 篇' : '')));
+      } else {
+        toast('已完成');
+      }
+      await load(true);
+      if(t.isConnected){ t.disabled = false; t.textContent = label; }
+    }catch(err){
+      toast('失败：' + err.message, true);
+      t.disabled = false;
+      t.textContent = label;
+    }
+    return;
+  }
+
+  /* ---- 演示模式：只改内存 ---- */
+  if(DEMO){
+    const card = S.cards.find(x => x.id === id) || cur;
+    if(act === 'grade'){
+      const cc = $('concl');
+      if(cc && cc.value.trim() && card) card.conclusion = cc.value.trim();
+      S.idx++; S.revealed = false;
+      if(S.idx >= S.cards.length) S.idx = 0;
+      renderReview($('main'));
+      return;
+    }
+    if(act === 'weight' && card){ card.weight = t.dataset.w; render(); return; }
+    if(act === 'archive' && card){
+      card.archived = +(t.dataset.flag || 1);
+      S.cards = S.cards.filter(x => !x.archived);
+      S.idx = 0; S.revealed = false; render(); return;
+    }
+    toast('演示模式：启动本地服务后才会真正保存', true);
+    return;
+  }
+
+  /* ---- 真实模式 ---- */
+  try{
+    if(act === 'grade'){
+      if(!id){ toast('找不到卡片 id', true); return; }
+      const cc = $('concl');
+      if(cc && cc.value.trim()){
+        const txt = cc.value.trim();
+        if(txt !== (cur && cur.conclusion || '')){
+          await api('/api/conclusion', {id, text: txt});
+          if(cur) cur.conclusion = txt;
+        }
+      }
+      await api('/api/review', {id, grade:+t.dataset.g});
+      S.idx++;
+      S.revealed = false;
+      if(S.idx >= S.cards.length){ await load(true); }
+      else { renderReview($('main')); renderStats(); }
+      return;
+    }
+
+    if(act === 'weight'){
+      if(!id){ toast('找不到卡片 id', true); return; }
+      await api('/api/weight', {id, weight:t.dataset.w});
+      toast('已改为' + (WNAME[t.dataset.w] || t.dataset.w));
+      await load(false);
+      return;
+    }
+
+    if(act === 'archive'){
+      if(!id){ toast('找不到卡片 id', true); return; }
+      const flag = +(t.dataset.flag || 1);
+      await api('/api/archive', {id, flag});
+      toast(flag ? '已归档' : '已恢复');
+      await load(true);
+      return;
+    }
+  }catch(err){
+    console.error(err);
+    toast('操作失败：' + err.message, true);
+  }
+});
+
+/* ---------------- 键盘 ---------------- */
+document.addEventListener('keydown', e=>{
+  const inField = /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
+  if(inField){
+    if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){
+      if(e.target.id === 'newtext'){ e.preventDefault(); saveNew(); }
+      else if(e.target.id === 'concl'){ e.preventDefault(); const b = document.querySelector('[data-act="grade"][data-g="2"]'); if(b) b.click(); }
+    }
+    return;
+  }
+  if(S.view !== 'due' || !S.cards.length) return;
+  if(e.code === 'Space' || e.key === 'Enter'){
+    e.preventDefault();
+    if(!S.revealed){ S.revealed = true; renderReview($('main')); }
+    return;
+  }
+  if(!S.revealed) return;
+  const map = {'1':0, '2':1, '3':2};
+  if(e.key in map){
+    const b = document.querySelector('[data-act="grade"][data-g="'+map[e.key]+'"]');
+    if(b) b.click();
+  }
+});
+
+/* ---------------- 搜索 ---------------- */
+let qt;
+$('q').addEventListener('input', e=>{
+  if(S.view === 'thread') return;          // 线索详情页不参与搜索，别把页面刷掉
+  clearTimeout(qt);
+  qt = setTimeout(()=>{ S.q = e.target.value.trim(); load(true); }, 260);
+});
+
+/* ---------------- 改线索标题 ---------------- */
+document.addEventListener('keydown', e=>{
+  if(e.target.id === 'ttitle' && e.key === 'Enter'){
+    e.preventDefault();
+    e.target.blur();
+  }
+});
+
+document.addEventListener('focusout', async e=>{
+  if(e.target.id !== 'ttitle') return;
+  const v = e.target.value.trim();
+  if(!v || !S.tid || (S.thread && v === S.thread.title)) return;
+  try{
+    await api('/api/thread/title', {id:S.tid, title:v});
+    if(S.thread) S.thread.title = v;
+    toast('标题已改');
+  }catch(err){
+    toast('改名失败：' + err.message, true);
+  }
+});
+
+/* ---------------- 手动加一条 ---------------- */
+async function saveNew(){
+  const el = $('newtext');
+  const v = el.value.trim();
+  if(!v) return;
+  if(DEMO){ toast('需要先启动本地服务才能保存', true); return; }
+  try{
+    await api('/api/capture', {text:v, source:'手动'});
+    el.value = '';
+    $('adder').classList.remove('on');
+    toast('已保存并排进复习队列');
+    await load(true);
+  }catch(err){
+    toast('保存失败：' + err.message, true);
+  }
+}
+
+load(true);
+</script>
+</body>
+</html>
